@@ -9,6 +9,9 @@ export interface IUserInteractor {
     role: string,
     isBlocked: boolean
   ): Promise<IUser>;
+  refreshToken(payload: IJwtPayload): Promise<string>;
+  verifyRefreshToken(token: string): Promise<boolean>;
+  generateNewToken(token: string): Promise<string | null>;
   checkpass(email: string, password: string): Promise<boolean | undefined>;
   isAdmin(email: string): Promise<{ isAdmin: boolean }>;
   jwt(payload: IJwtPayload): Promise<string>;

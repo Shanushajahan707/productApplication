@@ -10,9 +10,10 @@ const UserSchema: Schema<IUserModel> = new Schema({
   role: {
     type: String,
     required: true,
-    enum: ["admin", "recruiter", "job_seeker"],
   },
   isBlocked: { type: Boolean, required: true },
+  profilePicture: { type: String, required: false },
+  blockedUser:{type: [String], required: false},
 });
 
 const UserModel = model<IUserModel>("User", UserSchema);

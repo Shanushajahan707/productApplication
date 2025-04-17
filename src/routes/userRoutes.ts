@@ -14,7 +14,7 @@ const controller = new userController(interactor);
 router.post("/loginuser", controller.login.bind(controller));
 router.post("/signupuser", controller.signup.bind(controller));
 router.post("/otpuser", controller.onCheckOtp.bind(controller));
-
+router.post("/refreshtoken", controller.refreshToken.bind(controller));
 
 export default router;
 

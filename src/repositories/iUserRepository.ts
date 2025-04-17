@@ -1,8 +1,9 @@
-import { ITempUser, IUser } from "../entities/user";
+import { IJwtPayload, ITempUser, IUser } from "../entities/user";
 import { otpModel } from "../model/otpSession";
 import UserModel from "../model/userModel";
 import { IUserRepository } from "../providers/interface/user/iUserRepository";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export class userRepository implements IUserRepository {
   findTempUser = async (email: string): Promise<ITempUser | null> => {
@@ -14,16 +15,81 @@ export class userRepository implements IUserRepository {
       throw new Error("Error finding temporary user");
     }
   };
+  refreshToken = async (payload: IJwtPayload) => {
+    try {
+      // console.log("here the jwt ", payload);
+      const plainPayload = {
+        _id: payload._id,
+        email: payload.email,
+        role: payload.role,
+        isblocked: payload.isBlocked
+      };
+      // console.log("payload is", plainPayload);
+      const token = jwt.sign(plainPayload, process.env.SECRET_LOGIN as string, {
+        expiresIn: "7d",
+      });
+      return token;
+    } catch (error) {
+      console.log("error", error);
+      throw error;
+    }
+  };
+
+  verifyRefreshToken = async (token: string): Promise<boolean> => {
+    try {
+      return new Promise((resolve) => {
+        jwt.verify(token, process.env.SECRET_LOGIN as string, (err, user) => {
+          if (err) {
+            return resolve(false);
+          }
+          if (user) {
+            console.log("refresh toekn verified");
+            return resolve(true);
+          }
+        });
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+  generateNewToken = (token: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      jwt.verify(token, process.env.SECRET_LOGIN as string, (err, decoded) => {
+        if (err || !decoded) {
+          return resolve(null);
+        }
+
+        const user = decoded as jwt.JwtPayload; // Cast to JwtPayload
+
+        // Define the payload to be signed
+        const plainPayload = {
+          _id: user._id,
+          email: user.email,
+          role: user.role,
+          isblocked: user.isblocked,
+        };
+
+        // Create a new access token with the plainPayload
+        const newAccessToken = jwt.sign(
+          plainPayload,
+          process.env.SECRET_LOGIN as string,
+          { expiresIn: "2h" }
+        );
+        console.log("new token generated repositroy");
+        resolve(newAccessToken); // Resolve with the new access token
+      });
+    });
+  };
 
   checkOtp = async (
     email: string,
     value: number
   ): Promise<{ isValidOTP: boolean; isExpired: boolean }> => {
     try {
-      console.log(email, value);
+      console.log('repo parameter',email, value);
 
       const otpRecord = await otpModel.findOne({ email: email });
-      console.log(otpRecord);
+      console.log('repo otpomdel',otpRecord);
 
       if (otpRecord) {
         const expirationTime =
@@ -121,6 +187,8 @@ export class userRepository implements IUserRepository {
         password: hashedPassword,
         role,
         isBlocked,
+        profilePicture: "",
+        blockedUser: [],
       });
       await newUser.save();
       return newUser.toObject() as IUser;

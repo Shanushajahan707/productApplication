@@ -75,11 +75,13 @@ export class userController {
           role: userExist.role,
           isBlocked: userExist.isBlocked,
         };
+        const refreshToken = await this._interactor.refreshToken(payload);
+
 
         const token = await this._interactor.jwt(payload);
         res
           .status(ResponseStatus.Accepted)
-          .json({ message: "Success Login", token, isAdmin });
+          .json({ message: "Success Login", accessToken:token,refreshToken:refreshToken, isAdmin });
       } else {
         res
           .status(ResponseStatus.BadRequest)
@@ -138,6 +140,12 @@ export class userController {
         });
         return;
       }
+      const userExist = await this._interactor.findUser(user.email);
+      console.log("user exist", userExist);
+      if(userExist) {
+        res.status(ResponseStatus.BadRequest).json({ message: "User already exists" }); 
+        return
+      }
 
       const mailsent = await this._interactor.sendMail(user.email);
       console.log("sent ", mailsent);
@@ -153,6 +161,7 @@ export class userController {
         );
 
         if (tempuser) {
+          console.log("temp user", tempuser);
           res
             .status(ResponseStatus.OK)
             .json({ message: `Check ${user.email}`, email: user.email });
@@ -177,7 +186,7 @@ export class userController {
         return;
       }
 
-      console.log(req.body);
+      console.log('req body',req.body);
 
       const { email, otp } = req.body;
       const otpCheckResult = await this._interactor.checkOtp(email, otp);
@@ -224,5 +233,45 @@ export class userController {
       next(error);
     }
   };
+  refreshToken: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ error: "Refresh token is missing" });
+        return;
+      }
+
+      const isTokenValid = await this._interactor.verifyRefreshToken(
+        refreshToken
+      );
+      if (!isTokenValid) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ error: "Invalid refresh token" });
+        return;
+      }
+
+      const newAccessToken = await this._interactor.generateNewToken(
+        refreshToken
+      );
+      if (!newAccessToken) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ error: "Error generating token" });
+        return;
+      }
+
+      console.log("New token created:", newAccessToken);
+      res.status(ResponseStatus.Accepted).json({
+        accessToken: newAccessToken,
+        message: "Token refreshed",
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
 
 }

@@ -30,7 +30,7 @@ export const sendOtpEmail = async (
       attachments: [
         {
           filename: "mail_img.jpg",
-          path: path.join(__dirname, "../public/images/mail_img.jpg"),
+          path: path.join(__dirname, "../public/mail_img.jpg"),
           cid: "mail_img", 
         },
       ],

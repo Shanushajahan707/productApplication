@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv'
 
 dotenv.config()
-const MONGO_STR = process.env.MONGO_STR;
+const MONGO_STR = process.env.mongoStr;
 const dbName = 'productApplication';
 
 export async function connectDatabase() {

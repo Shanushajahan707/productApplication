@@ -12,6 +12,28 @@ export class userInteractor implements IUserInteractor {
   constructor(repository: IUserRepository) {
     this._repository = repository;
   }
+  refreshToken = async (payload: IJwtPayload): Promise<string> => {
+    try {
+      return await this._repository.refreshToken(payload);
+    } catch (error) {
+      console.error("Error in jwt:", error);
+      throw error;
+    }
+  };
+  verifyRefreshToken = async (token: string): Promise<boolean> => {
+    try {
+      return await this._repository.verifyRefreshToken(token);
+    } catch (error) {
+      throw error;
+    }
+  };
+  generateNewToken = async (token: string): Promise<string | null> => {
+    try {
+      return await this._repository.generateNewToken(token);
+    } catch (error) {
+      throw error;
+    }
+  };
 
   findTempUser = async (email: string): Promise<ITempUser | null> => {
     return await this._repository.findTempUser(email);
@@ -64,7 +86,7 @@ export class userInteractor implements IUserInteractor {
 
         { _id:payload._id,email: payload.email, role: payload.role },
         this.JWT_SECRET as string,
-        { expiresIn: "2h" }
+        { expiresIn: "17m" }
       );
       return token;
     } catch (error) {

@@ -5,6 +5,8 @@ export interface IUser {
     password: string;
     role: string
     isBlocked: boolean;
+    profilePicture?: string;
+    blockedUser?: string[];
   }
   
   export interface ITempUser extends IUser {
