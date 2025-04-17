@@ -4,6 +4,16 @@ import { ResponseStatus } from "../utils/statusCodes";
 import { isValidEmail } from "../utils/validEmails";
 import { isValidPassword } from "../utils/validPassword";
 import { IJwtPayload } from "../entities/user";
+import { IUser } from "../entities/user"; // Adjust the path to your IUser interface
+// import { log } from "console";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: IUser;
+    }
+  }
+}
 
 export class userController {
   private _interactor: IUserInteractor;
@@ -77,11 +87,13 @@ export class userController {
         };
         const refreshToken = await this._interactor.refreshToken(payload);
 
-
         const token = await this._interactor.jwt(payload);
-        res
-          .status(ResponseStatus.Accepted)
-          .json({ message: "Success Login", accessToken:token,refreshToken:refreshToken, isAdmin });
+        res.status(ResponseStatus.Accepted).json({
+          message: "Success Login",
+          accessToken: token,
+          refreshToken: refreshToken,
+          isAdmin,
+        });
       } else {
         res
           .status(ResponseStatus.BadRequest)
@@ -114,7 +126,7 @@ export class userController {
         isBlocked: req.body.isBlocked ? req.body.isBlocked : false,
       };
 
-      if (!["admin", "recruiter", "job_seeker"].includes(user.role)) {
+      if (!["admin", "user"].includes(user.role)) {
         res.status(ResponseStatus.BadRequest).json({ message: "Invalid role" });
         return;
       }
@@ -142,9 +154,11 @@ export class userController {
       }
       const userExist = await this._interactor.findUser(user.email);
       console.log("user exist", userExist);
-      if(userExist) {
-        res.status(ResponseStatus.BadRequest).json({ message: "User already exists" }); 
-        return
+      if (userExist) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ message: "User already exists" });
+        return;
       }
 
       const mailsent = await this._interactor.sendMail(user.email);
@@ -186,7 +200,7 @@ export class userController {
         return;
       }
 
-      console.log('req body',req.body);
+      console.log("req body", req.body);
 
       const { email, otp } = req.body;
       const otpCheckResult = await this._interactor.checkOtp(email, otp);
@@ -233,7 +247,11 @@ export class userController {
       next(error);
     }
   };
-  refreshToken: RequestHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  refreshToken: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
       const { refreshToken } = req.body;
       if (!refreshToken) {
@@ -273,5 +291,275 @@ export class userController {
     }
   };
 
+  getUserProfile: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user?._id;
+      console.log("req.user", req.user); // Debugging line
 
+      console.log("userid from req", userId); // Debugging line
+      // Assuming `req.user` contains authenticated user info
+      if (!userId) {
+        res
+          .status(ResponseStatus.Unauthorized)
+          .json({ message: "Unauthorized" });
+        return;
+      }
+
+      const userProfile = await this._interactor.getUserProfile(userId);
+      if (!userProfile) {
+        res
+          .status(ResponseStatus.NotFound)
+          .json({ message: "User profile not found" });
+        return;
+      }
+
+      res.status(ResponseStatus.OK).json({ userProfile });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateUserProfile: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user?._id;
+      if (!userId) {
+        res
+          .status(ResponseStatus.Unauthorized)
+          .json({ message: "Unauthorized" });
+        return;
+      }
+
+      // Prevent email updates
+      if (req.body.email) {
+        res
+          .status(400)
+          .json({ message: "Email cannot be updated through this endpoint" });
+        return;
+      }
+
+      const { oldPassword, newPassword, ...profileData } = req.body;
+
+      // Handle password change if new password is provided
+      if (newPassword) {
+        if (!oldPassword) {
+          res
+            .status(400)
+            .json({
+              message: "Current password is required to set a new password",
+            });
+          return;
+        }
+
+        const passwordResult = await this._interactor.changePassword(
+          userId,
+          oldPassword,
+          newPassword
+        );
+
+        if (!passwordResult.isChanged) {
+          // Return the error message from the interactor
+          res.status(400).json({ message: passwordResult.message });
+          return;
+        }
+
+        // If only password was changed, return success
+        if (Object.keys(profileData).length === 0) {
+          res.status(200).json({ message: passwordResult.message });
+          return;
+        }
+      }
+
+      // Update other profile data if any fields remain
+      if (Object.keys(profileData).length > 0) {
+        const updatedProfile = await this._interactor.updateUserProfile(
+          userId,
+          profileData
+        );
+
+        if (!updatedProfile) {
+          res
+            .status(ResponseStatus.BadRequest)
+            .json({ message: "Failed to update profile" });
+          return;
+        }
+
+        // Return success for both password and profile update
+        const successMessage = newPassword
+          ? "Password and profile updated successfully"
+          : "Profile updated successfully";
+
+        res.status(ResponseStatus.OK).json({
+          message: successMessage,
+          updatedProfile,
+        });
+        return;
+      }
+
+      // This handles case where only password was changed and we already returned
+      res.status(200).json({ message: "Password changed successfully" });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  blockUser: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const currentUserId = req.user?._id; //current user
+      const { userId } = req.params; // blocking user id
+      console.log(req.params);
+      
+      if (!currentUserId) {
+        res
+          .status(ResponseStatus.Unauthorized)
+          .json({ message: "Unauthorized" });
+        return;
+      }
+
+      if (!userId) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ message: "User ID is required" });
+        return;
+      }
+
+      if (currentUserId === userId) {
+        console.log('User attempted to block themselves');
+        res.status(ResponseStatus.BadRequest).json({ 
+          message: "Cannot block yourself" 
+        });
+        return
+      }
+
+      const result = await this._interactor.blockUser(currentUserId, userId);
+
+      if (!result) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ message: "Failed to block user" });
+        return;
+      }
+
+      res
+        .status(ResponseStatus.OK)
+        .json({ message: "User blocked successfully" });
+    } catch (error) {
+      next(error);
+    }
+  };
+  unblockUser: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const currentUserId = req.user?._id; //current user
+      const { userId } = req.params; // blocking user id
+
+      if (!currentUserId) {
+        res
+          .status(ResponseStatus.Unauthorized)
+          .json({ message: "Unauthorized" });
+        return;
+      }
+
+      if (!userId) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ message: "User ID is required" });
+        return;
+      }
+
+      const result = await this._interactor.unblockUser(currentUserId, userId);
+
+      if (!result) {
+        res
+          .status(ResponseStatus.BadRequest)
+          .json({ message: "Failed to unblock user" });
+        return;
+      }
+
+      res
+        .status(ResponseStatus.OK)
+        .json({ message: "User unblocked successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+  listUsers: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user?._id; //current user
+
+      if (!userId) {
+        res
+          .status(ResponseStatus.Unauthorized)
+          .json({ message: "Unauthorized" });
+        return;
+      }
+
+      const users = await this._interactor.listAllUsers(userId);
+
+      if (!users) {
+        res.status(ResponseStatus.BadRequest).json({ message: "No users found" });
+        return;
+      }
+
+      res.status(ResponseStatus.OK).json({ users });
+    } catch (error) {
+      next(error);
+    }
+  }
+  getOtherUserProfile: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const currentUserId = req.user?._id; 
+      const { userId: otherUserId } = req.params; 
+  
+      if (!currentUserId) {
+        res
+        .status(ResponseStatus.Unauthorized)
+        .json({ message: "Unauthorized access" });
+        return
+      }
+  
+      if (!otherUserId) {
+        res
+        .status(ResponseStatus.BadRequest)
+        .json({ message: "User ID is required in the request params" });
+        return
+      }
+  
+      const userProfile = await this._interactor.getspecificUser(currentUserId, otherUserId);
+  
+      if (!userProfile) {
+        res.status(ResponseStatus.Forbidden).json({
+          message: "You are not allowed to view this profile. The user has restricted your access.",
+        });
+        return 
+      }
+  
+      res.status(ResponseStatus.OK).json({ user: userProfile });
+    } catch (error) {
+      next(error);
+    }
+  };
+  
 }

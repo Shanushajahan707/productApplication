@@ -2,8 +2,7 @@ import { Router } from "express";
 import { userRepository } from "../repositories/iUserRepository";
 import { userInteractor } from "../interactor/iUserInteractor";
 import { userController } from "../controller/userController";
-// import auth from "../middleware/auth";
-// import authMiddleware from "../middleware/auth";
+import { authMiddleware } from "../middleware/auth"; // Ensure this middleware is implemented
 
 const router = Router();
 
@@ -16,5 +15,36 @@ router.post("/signupuser", controller.signup.bind(controller));
 router.post("/otpuser", controller.onCheckOtp.bind(controller));
 router.post("/refreshtoken", controller.refreshToken.bind(controller));
 
-export default router;
+// Add routes for user profile
+router.get(
+  "/profile",
+  authMiddleware,
+  controller.getUserProfile.bind(controller)
+);
+router.put(
+  "/profile",
+  authMiddleware,
+  controller.updateUserProfile.bind(controller)
+);
 
+router.post(
+  "/block/:userId",
+  authMiddleware,
+  controller.blockUser.bind(controller)
+);
+router.post(
+  "/unblock/:userId",
+  authMiddleware,
+  controller.unblockUser.bind(controller)
+);
+
+// User visibility routes
+router.get("/list", authMiddleware, controller.listUsers.bind(controller)); 
+// Get all visible users
+router.get(
+  "/getuserprofile/:userId",
+  authMiddleware,
+  controller.getOtherUserProfile.bind(controller)
+); // Get specific user profile
+
+export default router;

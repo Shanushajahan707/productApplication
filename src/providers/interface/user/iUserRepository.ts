@@ -27,4 +27,25 @@ export interface IUserRepository {
     value: number
   ): Promise<{ isValidOTP: boolean; isExpired: boolean }>;
   findTempUser(email: string): Promise<ITempUser | null>;
+  getUserProfile(userId: string): Promise<IUser | null>;
+  updateUserProfile(
+    userId: string,
+    updatedData: Partial<IUser>
+  ): Promise<IUser | null>;
+  changePassword(
+    userid: string,
+    oldPassword: string,
+    newPassword: string
+  ): Promise<{ isChanged: boolean; message: string }>;
+  blockUser(
+    userId: string,
+    blockedUserId: string
+  ): Promise<{ message: string; isBlocked: boolean }>;
+  unblockUser(
+    userId: string,
+    blockedUserId: string
+  ): Promise<{ message: string; isBlocked: boolean }>;
+  // getAllUsers(): Promise<IUser[]>;
+  getspecificUser(currentUserId: string, userId: string): Promise<IUser | null>;
+  listAllUsers(currentUserId: string): Promise<IUser[]>;
 }
