@@ -1,6 +1,8 @@
 export interface Brand {
-    id?: string;
-    name: string;
-    logo: string;
+    _id?: string;
+    BrandName: string;
+    description: string;
+    BrandLogo: string;
     categories: string[];
+    createdBy: string;
   }
