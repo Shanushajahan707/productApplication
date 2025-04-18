@@ -11,5 +11,6 @@ const interactor = new productInteractor(repository);
 const controller = new productController(interactor);
 
 router.post("/newproduct",authMiddleware, controller.createProduct.bind(controller));
+router.get("/getallproduct/product", authMiddleware, controller.getAllProducts.bind(controller));
 
 export default router;

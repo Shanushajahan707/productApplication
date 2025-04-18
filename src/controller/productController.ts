@@ -23,7 +23,7 @@ export class productController {
     this._interactor = interactor;
   }
 
- createProduct: RequestHandler = async (
+  createProduct: RequestHandler = async (
     req: Request,
     res: Response,
     next: NextFunction
@@ -38,17 +38,17 @@ export class productController {
         return;
       }
 
-      if(!req.body) {
+      if (!req.body) {
         res.status(ResponseStatus.BadRequest).json({
           message: "Request body is required",
         });
         return next();
       }
 
-      const { productName, description, category, price,brandId } = req.body;
-      const userId = req.user?._id; 
+      const { productName, description, category, price, brandId } = req.body;
+      const userId = req.user?._id;
 
-      if (!productName || !description || !category || !price||!brandId) {
+      if (!productName || !description || !category || !price || !brandId) {
         res.status(ResponseStatus.BadRequest).json({
           message: "All fields are required",
         });
@@ -71,6 +71,39 @@ export class productController {
         message: "Internal server error",
       });
     }
-  }
-  
+  };
+
+  getAllProducts: RequestHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const currentUserId = req.user?._id;
+
+      if (!currentUserId) {
+        res
+          .status(ResponseStatus.Unauthorized)
+          .json({ message: "Unauthorized access" });
+        return;
+      }
+
+      const filter = {
+        brand: req.query.brand as string,
+        category: req.query.category as string,
+        sortBy: req.query.sortBy as string,
+      };
+
+      const products = await this._interactor.getAllProducts(
+        currentUserId as string,
+        filter
+      );
+      res.status(ResponseStatus.OK).json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.status(ResponseStatus.BadRequest).json({
+        message: "Internal server error",
+      });
+    }
+  };
 }
