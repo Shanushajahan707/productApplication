@@ -6,7 +6,7 @@
 - Profile management (Able to block another users to prevent seeing our profile data)
 - Blocking system
 - Brand and Product management (with filtering/sorting)
-
+-Built using Clean Architecture for separation of concerns and maintainability
 
 
 - Node.js + Express.js
